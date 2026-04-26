@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ScraperKit Admin</title>
+  <style>
+    :root{
+      --bg:#0d0f18;--surface:#141720;--surface2:#1c1f2e;--border:#252840;
+      --text:#e2e8f0;--muted:#64748b;--accent:#7c6af7;--accent2:#5b4fcf;
+      --green:#34d399;--red:#f87171;--yellow:#fbbf24;--blue:#60a5fa;
+      --sidebar-w:220px;--mono:'Cascadia Code','Fira Code',Consolas,monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html,body{height:100%;overflow:hidden;}
+    body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);display:flex;font-size:14px;}
+
+    /* ── Sidebar ─────────────────────────────────────── */
+    #sidebar{
+      width:var(--sidebar-w);min-width:var(--sidebar-w);background:var(--surface);
+      border-right:1px solid var(--border);display:flex;flex-direction:column;
+      transition:transform .2s ease;z-index:50;
+    }
+    .logo{padding:.75rem 1.25rem 1rem;display:flex;align-items:center;justify-content:space-between;}
+    .logo-text span{font-size:1.05rem;font-weight:700;color:var(--accent);}
+    .logo-text small{font-size:.68rem;color:var(--muted);display:block;}
+    #menu-close{display:none;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:.25rem;}
+    nav a{
+      display:flex;align-items:center;gap:.55rem;padding:.6rem 1.25rem;
+      color:var(--muted);text-decoration:none;font-size:.82rem;
+      border-left:3px solid transparent;transition:all .15s;
+    }
+    nav a:hover{color:var(--text);background:var(--surface2);}
+    nav a.active{color:var(--accent);border-left-color:var(--accent);background:var(--surface2);}
+    .nav-ic{width:15px;text-align:center;font-style:normal;}
+    #jobs-badge{background:var(--accent);color:#fff;border-radius:9999px;font-size:.6rem;padding:.1rem .4rem;margin-left:auto;display:none;}
+    .sidebar-footer{margin-top:auto;padding:.9rem 1.25rem;font-size:.68rem;color:var(--muted);}
+    .sidebar-footer a{color:var(--accent);}
+
+    /* ── Main ────────────────────────────────────────── */
+    #main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+    .topbar{
+      background:var(--surface);border-bottom:1px solid var(--border);
+      padding:.65rem 1.25rem;display:flex;align-items:center;gap:.75rem;min-height:48px;flex-shrink:0;
+    }
+    .topbar h2{font-size:.95rem;font-weight:600;}
+    .topbar .acts{margin-left:auto;display:flex;gap:.4rem;flex-wrap:wrap;}
+    [id^="menu-btn"]{display:none;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:.25rem .4rem;}
+    .content{flex:1;overflow-y:auto;padding:1.25rem;}
+
+    /* ── Panels ──────────────────────────────────────── */
+    .panel{display:none;} .panel.active{display:block;}
+
+    /* ── Stat cards ──────────────────────────────────── */
+    .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1.25rem;}
+    .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:.65rem;padding:.9rem 1rem;}
+    .stat-card .lbl{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.35rem;}
+    .stat-card .val{font-size:1.5rem;font-weight:700;}
+    .val.purple{color:var(--accent);} .val.green{color:var(--green);} .val.red{color:var(--red);} .val.yellow{color:var(--yellow);} .val.blue{color:var(--blue);}
+
+    /* ── Tables ──────────────────────────────────────── */
+    .tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:.65rem;overflow:hidden;overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;min-width:500px;}
+    th{text-align:left;padding:.55rem .9rem;font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);white-space:nowrap;}
+    td{padding:.55rem .9rem;font-size:.8rem;border-bottom:1px solid var(--surface2);vertical-align:middle;}
+    tr:last-child td{border-bottom:none;}
+    tr.clickable:hover td{background:var(--surface2);cursor:pointer;}
+    .empty-row td{color:var(--muted);text-align:center;padding:1.75rem;}
+
+    /* ── Badges ──────────────────────────────────────── */
+    .badge{display:inline-flex;align-items:center;gap:.25rem;padding:.15rem .55rem;border-radius:9999px;font-size:.68rem;font-weight:600;white-space:nowrap;}
+    .badge::before{content:'●';font-size:.55rem;}
+    .badge.success{background:#064e3b22;color:var(--green);border:1px solid #064e3b55;}
+    .badge.failed{background:#450a0a22;color:var(--red);border:1px solid #450a0a55;}
+    .badge.running{background:#1e3a5f22;color:var(--blue);border:1px solid #1e3a5f55;}
+    .badge.queued{background:#3b2f0022;color:var(--yellow);border:1px solid #3b2f0055;}
+    .badge.cancelled{background:#2a1f2a22;color:var(--muted);border:1px solid var(--border);}
+
+    /* ── Buttons ─────────────────────────────────────── */
+    .btn{display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .8rem;border-radius:.35rem;font-size:.78rem;font-weight:500;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;}
+    .btn-primary{background:var(--accent);color:#fff;} .btn-primary:hover{background:var(--accent2);}
+    .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);} .btn-ghost:hover{color:var(--text);border-color:var(--accent);}
+    .btn-danger{background:transparent;color:var(--red);border:1px solid #450a0a55;} .btn-danger:hover{background:#450a0a33;}
+    .btn-sm{padding:.2rem .5rem;font-size:.72rem;}
+    .btn:disabled{opacity:.4;cursor:not-allowed;}
+
+    /* ── Console ─────────────────────────────────────── */
+    .console-wrap{
+      background:#090b12;border:1px solid var(--border);border-radius:.45rem;
+      height:400px;overflow-y:auto;font-family:var(--mono);font-size:.75rem;
+      line-height:1.55;padding:.65rem .9rem;
+    }
+    .cl{white-space:pre-wrap;word-break:break-all;color:#a0aec0;}
+    .cl.err{color:var(--red);} .cl.warn{color:var(--yellow);} .cl.info{color:var(--blue);} .cl.ok{color:var(--green);} .cl.dim{color:#3a4060;}
+    .blink{display:inline-block;width:7px;height:13px;background:var(--accent);animation:blink 1s step-end infinite;vertical-align:text-bottom;}
+    @keyframes blink{50%{opacity:0;}}
+
+    /* ── Code editor ─────────────────────────────────── */
+    textarea.code-ed{
+      width:100%;min-height:380px;background:#090b12;color:#a0aec0;
+      border:1px solid var(--border);border-radius:.45rem;
+      font-family:var(--mono);font-size:.78rem;line-height:1.6;
+      padding:.65rem .9rem;resize:vertical;outline:none;
+    }
+    textarea.code-ed:focus{border-color:var(--accent);}
+    .vmsg{font-size:.75rem;margin-top:.35rem;padding:.35rem .65rem;border-radius:.3rem;display:none;}
+    .vmsg.ok{background:#064e3b22;color:var(--green);border:1px solid #064e3b55;display:block;}
+    .vmsg.err{background:#450a0a22;color:var(--red);border:1px solid #450a0a55;display:block;}
+
+    /* ── Drawer ──────────────────────────────────────── */
+    #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;}
+    #drawer{
+      position:fixed;right:0;top:0;bottom:0;width:560px;max-width:100vw;
+      background:var(--surface);border-left:1px solid var(--border);
+      z-index:101;display:flex;flex-direction:column;
+      transform:translateX(100%);transition:transform .2s ease;
+    }
+    #drawer.open{transform:translateX(0);}
+    #overlay.open{display:block;}
+    .drawer-hd{padding:.9rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem;}
+    .drawer-hd h3{font-size:.9rem;font-weight:600;flex:1;}
+    .drawer-body{flex:1;overflow-y:auto;padding:1.1rem;}
+    /* Drawer tabs */
+    .dtabs{display:flex;gap:0;margin-bottom:1rem;border-bottom:1px solid var(--border);}
+    .dtab{padding:.45rem .9rem;font-size:.78rem;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+    .dtab:hover{color:var(--text);}
+    .dtab.active{color:var(--accent);border-bottom-color:var(--accent);}
+    .dtab-pane{display:none;} .dtab-pane.active{display:block;}
+    /* kv */
+    .kv{display:grid;grid-template-columns:130px 1fr;gap:.25rem .75rem;font-size:.8rem;margin-bottom:.9rem;}
+    .kv .k{color:var(--muted);} .kv .v{color:var(--text);font-family:var(--mono);word-break:break-all;}
+    /* step list */
+    .step-list{display:flex;flex-direction:column;gap:.35rem;}
+    .step-item{display:flex;align-items:flex-start;gap:.6rem;padding:.5rem .65rem;background:var(--surface2);border-radius:.35rem;font-size:.78rem;}
+    .step-name{width:140px;font-family:var(--mono);color:var(--text);}
+    .step-meta{color:var(--muted);flex:1;font-size:.72rem;}
+    .step-err{color:var(--red);font-size:.7rem;margin-top:.15rem;font-family:var(--mono);}
+    /* file list in drawer */
+    .file-row{display:flex;align-items:center;gap:.6rem;padding:.5rem .65rem;background:var(--surface2);border-radius:.35rem;margin-bottom:.35rem;}
+    .file-icon{font-size:1.1rem;}
+    .file-info{flex:1;min-width:0;}
+    .file-name{font-family:var(--mono);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .file-meta{font-size:.68rem;color:var(--muted);}
+    .file-missing{color:var(--red);font-size:.7rem;}
+
+    /* ── File preview modal ──────────────────────────── */
+    #preview-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;}
+    #preview-overlay.open{display:flex;}
+    #preview-modal{
+      background:var(--surface);border:1px solid var(--border);border-radius:.65rem;
+      width:min(1000px,95vw);max-height:88vh;display:flex;flex-direction:column;
+    }
+    .pm-hd{padding:.9rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem;}
+    .pm-hd h3{font-size:.9rem;font-weight:600;flex:1;font-family:var(--mono);}
+    .pm-body{flex:1;overflow:auto;padding:1rem;}
+    .pm-meta{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;margin-bottom:.9rem;font-size:.78rem;color:var(--muted);}
+    .pm-meta span b{color:var(--text);}
+    /* data table */
+    .data-tbl-wrap{overflow:auto;border:1px solid var(--border);border-radius:.4rem;}
+    .data-tbl{border-collapse:collapse;font-size:.75rem;font-family:var(--mono);white-space:nowrap;}
+    .data-tbl th{background:var(--surface2);padding:.4rem .7rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.65rem;text-transform:uppercase;position:sticky;top:0;}
+    .data-tbl td{padding:.35rem .7rem;border-bottom:1px solid var(--surface2);color:var(--text);max-width:280px;overflow:hidden;text-overflow:ellipsis;}
+    .data-tbl tr:last-child td{border-bottom:none;}
+    .data-tbl tr:hover td{background:var(--surface2);}
+    .sheet-tabs{display:flex;gap:.4rem;margin-bottom:.75rem;flex-wrap:wrap;}
+    .sheet-tab{padding:.25rem .65rem;font-size:.72rem;border-radius:.3rem;background:var(--surface2);border:1px solid var(--border);cursor:pointer;color:var(--muted);}
+    .sheet-tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+    .showing-note{font-size:.72rem;color:var(--muted);margin-bottom:.6rem;}
+
+    /* ── Section head ────────────────────────────────── */
+    .sh{display:flex;align-items:center;gap:.6rem;margin-bottom:.9rem;}
+    .sh h3{font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+
+    /* ── Forms ───────────────────────────────────────── */
+    .form-row{display:flex;gap:.6rem;align-items:flex-end;margin-bottom:.9rem;flex-wrap:wrap;}
+    input[type=text],select{
+      background:var(--surface2);border:1px solid var(--border);color:var(--text);
+      padding:.38rem .65rem;border-radius:.35rem;font-size:.8rem;outline:none;
+    }
+    input[type=text]:focus,select:focus{border-color:var(--accent);}
+    label{font-size:.72rem;color:var(--muted);display:block;margin-bottom:.25rem;}
+
+    /* ── Config cards ────────────────────────────────── */
+    .cfg-card{background:var(--surface);border:1px solid var(--border);border-radius:.55rem;padding:.9rem 1.1rem;display:flex;align-items:center;gap:.8rem;margin-bottom:.5rem;flex-wrap:wrap;}
+    .cfg-name{font-weight:600;font-size:.88rem;flex:1;min-width:100px;}
+    .cfg-meta{font-size:.7rem;color:var(--muted);}
+
+    /* ── Guide ───────────────────────────────────────── */
+    .guide{max-width:820px;}
+    details{border:1px solid var(--border);border-radius:.5rem;margin-bottom:.65rem;overflow:hidden;}
+    details[open]{border-color:var(--accent);}
+    summary{
+      padding:.75rem 1rem;cursor:pointer;font-weight:600;font-size:.85rem;
+      list-style:none;display:flex;align-items:center;justify-content:space-between;
+      background:var(--surface);
+    }
+    summary::-webkit-details-marker{display:none;}
+    summary::after{content:'▾';color:var(--muted);font-size:.8rem;transition:transform .2s;}
+    details[open] summary::after{transform:rotate(-180deg);}
+    .guide-body{padding:1rem;background:var(--surface2);font-size:.82rem;line-height:1.65;}
+    .guide-body p{margin-bottom:.65rem;color:#94a3b8;}
+    .guide-body h4{margin:.9rem 0 .4rem;font-size:.8rem;color:var(--text);text-transform:uppercase;letter-spacing:.05em;}
+    pre.g{
+      background:#090b12;border:1px solid var(--border);border-radius:.4rem;
+      padding:.75rem 1rem;overflow-x:auto;font-family:var(--mono);font-size:.75rem;
+      line-height:1.6;color:#a0aec0;margin:.5rem 0;
+    }
+    .guide-table{width:100%;border-collapse:collapse;font-size:.78rem;margin:.5rem 0;}
+    .guide-table th{text-align:left;padding:.4rem .7rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.68rem;text-transform:uppercase;}
+    .guide-table td{padding:.38rem .7rem;border-bottom:1px solid var(--surface);vertical-align:top;}
+    .guide-table td:first-child{font-family:var(--mono);color:var(--blue);white-space:nowrap;}
+    .guide-table tr:last-child td{border-bottom:none;}
+    code{font-family:var(--mono);font-size:.82em;background:var(--border);padding:.1em .35em;border-radius:3px;color:var(--blue);}
+
+    /* ── Live dot ────────────────────────────────────── */
+    .live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;display:inline-block;}
+    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+    /* ── Scrollbar ───────────────────────────────────── */
+    ::-webkit-scrollbar{width:5px;height:5px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+    /* ── Responsive ──────────────────────────────────── */
+    @media(max-width:720px){
+      #sidebar{position:fixed;top:0;left:0;bottom:0;transform:translateX(-100%);box-shadow:4px 0 20px rgba(0,0,0,.4);}
+      #sidebar.open{transform:translateX(0);}
+      #menu-btn{display:block;}
+      #menu-close{display:block;}
+      #drawer{width:100vw;}
+      .stat-grid{grid-template-columns:repeat(2,1fr);}
+      .content{padding:.9rem;}
+      .topbar{padding:.55rem .9rem;}
+      pre.g{font-size:.68rem;}
+    }
+    @media(max-width:420px){
+      .stat-grid{grid-template-columns:1fr 1fr;}
+      .stat-card .val{font-size:1.2rem;}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ Sidebar ═══════════════════════════════════════════════════════════ -->
+<div id="sidebar">
+  <div class="logo">
+    <div class="logo-text"><span>⚡ ScraperKit</span><small>Admin Panel</small></div>
+    <button id="menu-close" onclick="closeSidebar()">✕</button>
+  </div>
+  <nav>
+    <a href="#" class="active" data-panel="panel-overview"  onclick="nav(this)"><i class="nav-ic">◈</i>Overview</a>
+    <a href="#" data-panel="panel-jobs"     onclick="nav(this)"><i class="nav-ic">▶</i>Live Jobs<span id="jobs-badge">0</span></a>
+    <a href="#" data-panel="panel-runs"     onclick="nav(this)"><i class="nav-ic">⊞</i>Run History</a>
+    <a href="#" data-panel="panel-files"    onclick="nav(this)"><i class="nav-ic">🗂</i>Files</a>
+    <a href="#" data-panel="panel-configs"  onclick="nav(this)"><i class="nav-ic">⚙</i>Configs</a>
+    <a href="#" data-panel="panel-new-run"  onclick="nav(this)"><i class="nav-ic">+</i>New Crawl</a>
+    <a href="#" data-panel="panel-guide"    onclick="nav(this)"><i class="nav-ic">📖</i>Guide</a>
+  </nav>
+  <div class="sidebar-footer">API docs: <a href="/docs" target="_blank">Swagger ↗</a></div>
+</div>
+
+<!-- ═══ Main ══════════════════════════════════════════════════════════════ -->
+<div id="main">
+
+  <!-- ── Overview ─────────────────────────────────────────────────────── -->
+  <div id="panel-overview" class="panel active">
+    <div class="topbar">
+      <button id="menu-btn" onclick="openSidebar()">☰</button>
+      <h2>Overview</h2>
+      <div class="acts"><button class="btn btn-ghost btn-sm" onclick="loadOverview()">↻ Refresh</button></div>
+    </div>
+    <div class="content">
+      <div class="stat-grid">
+        <div class="stat-card"><div class="lbl">Total Runs</div><div class="val purple" id="ov-total">—</div></div>
+        <div class="stat-card"><div class="lbl">Successful</div><div class="val green"  id="ov-ok">—</div></div>
+        <div class="stat-card"><div class="lbl">Failed</div>    <div class="val red"    id="ov-fail">—</div></div>
+        <div class="stat-card"><div class="lbl">Projects</div>  <div class="val yellow" id="ov-proj">—</div></div>
+        <div class="stat-card"><div class="lbl">Live Jobs</div> <div class="val blue"   id="ov-live">—</div></div>
+      </div>
+      <div class="sh"><h3>Projects</h3></div>
+      <div class="tbl-wrap" style="margin-bottom:1.25rem">
+        <table><thead><tr><th>Project</th><th>Runs</th><th>Last Run</th><th>Status</th><th></th></tr></thead>
+        <tbody id="ov-proj-tbl"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody></table>
+      </div>
+      <div class="sh"><h3>Recent Runs</h3></div>
+      <div class="tbl-wrap">
+        <table><thead><tr><th>Run ID</th><th>Project</th><th>Status</th><th>Started</th><th>Duration</th><th>Items</th></tr></thead>
+        <tbody id="ov-runs-tbl"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Live Jobs ─────────────────────────────────────────────────────── -->
+  <div id="panel-jobs" class="panel">
+    <div class="topbar">
+      <button id="menu-btn2" onclick="openSidebar()">☰</button>
+      <h2>Live Jobs <span class="live-dot" style="margin-left:.4rem"></span></h2>
+      <div class="acts"><button class="btn btn-ghost btn-sm" onclick="loadJobs()">↻ Refresh</button></div>
+    </div>
+    <div class="content">
+      <div class="tbl-wrap" style="margin-bottom:1.25rem">
+        <table><thead><tr><th>Run ID</th><th>Project</th><th>Status</th><th>Started</th><th>PID</th><th>Actions</th></tr></thead>
+        <tbody id="jobs-tbl"><tr class="empty-row"><td colspan="6">No active jobs</td></tr></tbody></table>
+      </div>
+      <div id="console-section" style="display:none">
+        <div class="sh">
+          <h3>Console — <span id="console-job-id">—</span></h3>
+          <div style="margin-left:auto;display:flex;gap:.4rem">
+            <button class="btn btn-ghost btn-sm" onclick="clearConsole()">Clear</button>
+            <button class="btn btn-ghost btn-sm" id="btn-sl" onclick="toggleSL()">Auto-scroll: ON</button>
+          </div>
+        </div>
+        <div class="console-wrap" id="console-out"><span class="blink"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Run History ───────────────────────────────────────────────────── -->
+  <div id="panel-runs" class="panel">
+    <div class="topbar">
+      <button id="menu-btn3" onclick="openSidebar()">☰</button>
+      <h2>Run History</h2>
+      <div class="acts">
+        <input type="text" id="runs-filter" placeholder="Filter by project" style="width:160px" oninput="loadRuns()">
+        <button class="btn btn-ghost btn-sm" onclick="loadRuns()">↻</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="tbl-wrap">
+        <table><thead><tr><th>Run ID</th><th>Project</th><th>Status</th><th>Started</th><th>Duration</th><th>Items</th><th></th></tr></thead>
+        <tbody id="runs-tbl"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Files ────────────────────────────────────────────────────────── -->
+  <div id="panel-files" class="panel">
+    <div class="topbar">
+      <button id="menu-btn4" onclick="openSidebar()">☰</button>
+      <h2>Files</h2>
+      <div class="acts">
+        <input type="text" id="files-filter" placeholder="Filter by project" style="width:160px" oninput="loadFilesPanel()">
+        <button class="btn btn-ghost btn-sm" onclick="loadFilesPanel()">↻</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>File</th><th>Step</th><th>Project</th><th>Run</th><th>Size</th><th>Actions</th></tr></thead>
+          <tbody id="files-tbl"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Configs ───────────────────────────────────────────────────────── -->
+  <div id="panel-configs" class="panel">
+    <div class="topbar">
+      <button id="menu-btn5" onclick="openSidebar()">☰</button>
+      <h2>Configs</h2>
+      <div class="acts"><button class="btn btn-primary btn-sm" onclick="newConfig()">+ New Config</button></div>
+    </div>
+    <div class="content">
+      <div id="configs-list">Loading…</div>
+      <div id="config-editor-section" style="display:none;margin-top:1.25rem">
+        <div class="sh">
+          <h3 id="editor-title">Edit Config</h3>
+          <div style="margin-left:auto;display:flex;gap:.4rem;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="validateEditor()">✓ Validate</button>
+            <button class="btn btn-primary btn-sm" onclick="saveConfig()">Save</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeEditor()">✕ Close</button>
+          </div>
+        </div>
+        <input type="text" id="editor-name" placeholder="config-name" style="width:260px;margin-bottom:.65rem">
+        <textarea class="code-ed" id="config-editor" spellcheck="false"></textarea>
+        <div class="vmsg" id="vmsg"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── New Crawl ─────────────────────────────────────────────────────── -->
+  <div id="panel-new-run" class="panel">
+    <div class="topbar"><button id="menu-btn6" onclick="openSidebar()">☰</button><h2>Start New Crawl</h2></div>
+    <div class="content" style="max-width:760px">
+      <div style="margin-bottom:1.5rem">
+        <div class="sh"><h3>Quick Start — saved config</h3></div>
+        <div class="form-row">
+          <div><label>Saved config</label><select id="quick-select" style="width:260px"><option>Loading…</option></select></div>
+          <button class="btn btn-primary" onclick="quickStart()">▶ Run Now</button>
+        </div>
+      </div>
+      <div class="sh"><h3>Advanced — paste YAML</h3></div>
+      <textarea class="code-ed" id="inline-editor" spellcheck="false" style="min-height:300px"># Paste your config here
+name: my_crawl
+start_urls:
+  - https://example.com
+crawler:
+  item_selector: ".item"
+  fields:
+    title: ".title::text"
+workflow:
+  - crawl
+  - clean
+  - export_json
+  - export_excel</textarea>
+      <div class="vmsg" id="inline-vmsg" style="margin-top:.4rem"></div>
+      <div style="display:flex;gap:.4rem;margin-top:.65rem;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="validateInline()">✓ Validate</button>
+        <button class="btn btn-primary" onclick="runInline()">▶ Run This Config</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Guide ────────────────────────────────────────────────────────── -->
+  <div id="panel-guide" class="panel">
+    <div class="topbar"><button id="menu-btn7" onclick="openSidebar()">☰</button><h2>📖 Guide &amp; Config Reference</h2></div>
+    <div class="content">
+      <div class="guide">
+
+        <!-- Quick Start -->
+        <details open>
+          <summary>Quick Start</summary>
+          <div class="guide-body">
+            <p>Install ScraperKit, create a YAML config file, and run it in one command.</p>
+            <h4>1. Install</h4>
+            <pre class="g">pip install -e ".[all]"</pre>
+            <h4>2. Create a config file</h4>
+            <pre class="g">name: my_project
+
+start_urls:
+  - https://books.toscrape.com/catalogue/page-1.html
+
+crawler:
+  item_selector: "article.product_pod"
+  fields:
+    title: "h3 a::attr(title)"
+    price: "p.price_color::text"
+    url:   "h3 a::attr(href)"
+  pagination:
+    type: css
+    selector: "li.next a::attr(href)"
+
+compare:
+  key_field: url
+
+workflow:
+  - crawl
+  - clean
+  - deduplicate
+  - export_json
+  - export_excel
+  - compare_previous</pre>
+            <h4>3. Run it</h4>
+            <pre class="g">scraperkit run my_project.yaml</pre>
+            <p>Output appears in <code>output/my_project/json/</code> and <code>output/my_project/excel/</code>.</p>
+            <h4>4. Start the admin panel</h4>
+            <pre class="g">scraperkit serve          # http://localhost:8000
+scraperkit serve --port 9000 --host 0.0.0.0</pre>
+          </div>
+        </details>
+
+        <!-- Config top-level -->
+        <details>
+          <summary>Config — Top-Level Fields</summary>
+          <div class="guide-body">
+            <table class="guide-table">
+              <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td>name</td><td>string</td><td>Project name. Used for output folder. Auto-inferred from filename if omitted.</td></tr>
+                <tr><td>start_urls</td><td>list</td><td>One or more URLs the spider starts from.</td></tr>
+                <tr><td>crawler</td><td>object</td><td>Spider and extraction settings (see below).</td></tr>
+                <tr><td>workflow</td><td>list</td><td>Ordered list of step names to run. Default: <code>[crawl, export_json]</code></td></tr>
+                <tr><td>compare</td><td>object</td><td>Change detection settings.</td></tr>
+                <tr><td>hooks</td><td>object</td><td>Event-triggered actions.</td></tr>
+                <tr><td>output</td><td>object</td><td>Output directory settings.</td></tr>
+                <tr><td>notify</td><td>object</td><td>Slack / email / SharePoint.</td></tr>
+                <tr><td>extra</td><td>object</td><td>Free-form data accessible in custom steps via <code>ctx.config.extra</code>.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- Crawler config -->
+        <details>
+          <summary>crawler — HTML Sites</summary>
+          <div class="guide-body">
+            <pre class="g">crawler:
+  item_selector: ".product-card"   # CSS selector — one match = one item
+  fields:
+    title: ".title::text"           # shorthand CSS
+    price: ".price::text"
+    link:  "a::attr(href)"
+    name:  "xpath=//h1/text()"      # XPath prefix
+    sku:   "regex=SKU-(\d+)"        # Regex prefix — group 1 returned
+  pagination:
+    type: css                        # css | xpath | url_increment
+    selector: "a.next::attr(href)"
+  delay_min: 2.0                     # seconds between requests
+  delay_max: 5.0
+  autothrottle: true
+  rotate_useragent: true
+  respect_robots: true</pre>
+            <h4>Field shorthand prefixes</h4>
+            <table class="guide-table">
+              <thead><tr><th>Syntax</th><th>Type</th><th>Example</th></tr></thead>
+              <tbody>
+                <tr><td>.selector::text</td><td>CSS</td><td><code>.title::text</code></td></tr>
+                <tr><td>xpath=...</td><td>XPath</td><td><code>xpath=//h1/text()</code></td></tr>
+                <tr><td>regex=...</td><td>Regex</td><td><code>regex=price:\s*(\d+)</code></td></tr>
+              </tbody>
+            </table>
+            <h4>Full field form</h4>
+            <pre class="g">fields:
+  price:
+    type: css           # css | xpath | regex | json
+    selector: ".price::text"
+    default: "N/A"
+    transform: strip    # strip | lower | upper | int | float</pre>
+          </div>
+        </details>
+
+        <!-- JSON API config -->
+        <details>
+          <summary>crawler — JSON APIs</summary>
+          <div class="guide-body">
+            <p>When the URL returns JSON instead of HTML, set <code>response_type: json</code>.</p>
+            <pre class="g">start_urls:
+  - https://api.example.com/dealers?page=1&amp;limit=100
+
+crawler:
+  response_type: json
+  json_items_path: "items"          # dot-path to the array in the JSON response
+  json_total_pages_path: "total_pages"  # optional — stops pagination early
+
+  # Leave fields empty to pass through ALL keys from the API item.
+  # Or list only the fields you need:
+  fields:
+    id:   "id"
+    name: "name"
+    city: "city"
+    zip:  "zip"
+
+  pagination:
+    type: url_increment
+    param: page               # query param to increment
+    # max_pages: 50           # hard stop (optional)
+
+  respect_robots: false       # API endpoints don't have robots.txt</pre>
+            <p>Pagination stops automatically when the items array is empty, or when <code>total_pages</code> is reached.</p>
+            <h4>Nested paths</h4>
+            <pre class="g">json_items_path: "data.results"   # navigates response["data"]["results"]
+
+fields:
+  address: "location.address"       # navigates item["location"]["address"]</pre>
+          </div>
+        </details>
+
+        <!-- Pagination -->
+        <details>
+          <summary>Pagination Types</summary>
+          <div class="guide-body">
+            <h4>CSS / XPath — follow a "next page" link</h4>
+            <pre class="g">pagination:
+  type: css
+  selector: "a.next-page::attr(href)"</pre>
+            <h4>URL increment — bump ?page=N</h4>
+            <pre class="g">pagination:
+  type: url_increment
+  param: page          # query parameter name
+  max_pages: 50        # optional hard limit</pre>
+          </div>
+        </details>
+
+        <!-- Workflow steps -->
+        <details>
+          <summary>Workflow Steps</summary>
+          <div class="guide-body">
+            <table class="guide-table">
+              <thead><tr><th>Step</th><th>What it does</th></tr></thead>
+              <tbody>
+                <tr><td>crawl</td><td>Run the Scrapy spider. Loads items into the pipeline.</td></tr>
+                <tr><td>clean</td><td>Strip whitespace, remove items where all fields are empty/null.</td></tr>
+                <tr><td>deduplicate</td><td>Remove duplicate items using <code>compare.key_field</code>.</td></tr>
+                <tr><td>export_json</td><td>Write <code>output/&lt;project&gt;/json/&lt;ts&gt;_items.json</code></td></tr>
+                <tr><td>export_excel</td><td>Write <code>output/&lt;project&gt;/excel/&lt;ts&gt;_items.xlsx</code></td></tr>
+                <tr><td>compare_previous</td><td>Detect new / removed / changed items vs the last run.</td></tr>
+                <tr><td>backup</td><td>Archive all output files to a timestamped folder.</td></tr>
+                <tr><td>notify_slack</td><td>Post summary to Slack. Needs <code>SLACK_TOKEN</code> env var.</td></tr>
+                <tr><td>notify_email</td><td>Send summary email via SMTP.</td></tr>
+                <tr><td>upload_sharepoint</td><td>Upload files to SharePoint via Microsoft Graph.</td></tr>
+              </tbody>
+            </table>
+            <pre class="g">workflow:
+  - crawl
+  - clean
+  - deduplicate
+  - export_json
+  - export_excel
+  - compare_previous
+  - backup
+  # - notify_slack      # uncomment + set SLACK_TOKEN env var</pre>
+          </div>
+        </details>
+
+        <!-- Change detection -->
+        <details>
+          <summary>Change Detection (compare_previous)</summary>
+          <div class="guide-body">
+            <p>After crawling, compare with the previous run to detect what's new, removed, or changed.</p>
+            <pre class="g">compare:
+  key_field: id            # unique field to identify each item
+  fuzzy_fields:            # fields to fuzzy-match when key doesn't match
+    - name
+    - address
+  fuzzy_threshold: 97      # fuzzywuzzy token_set_ratio (0–100)</pre>
+            <p>Results are saved to <code>output/&lt;project&gt;/compare/&lt;ts&gt;_comparison.json</code> and also available in <code>ctx.meta["compare"]</code> for hook steps like <code>notify_slack</code>.</p>
+            <h4>Output structure</h4>
+            <pre class="g">{
+  "new":     [...],   # items in current run, not in previous
+  "removed": [...],   # items in previous run, not in current
+  "changed": [...],   # same key, different field values
+  "fuzzy_matches": [...],
+  "counts":  { "new": 5, "removed": 2, "changed": 8, ... }
+}</pre>
+          </div>
+        </details>
+
+        <!-- Hooks -->
+        <details>
+          <summary>Hooks</summary>
+          <div class="guide-body">
+            <p>Hooks fire automatically on lifecycle events. Each handler can be a step name, a shell command, or a Python function.</p>
+            <pre class="g">hooks:
+  on_start:           []
+  on_step_success:    []
+  on_step_error:      []
+  on_crawl_finished:  []
+  on_new_items_found: []
+  on_workflow_failed:
+    - notify_slack              # run a registered step
+    - shell:echo "failed"       # shell command
+  on_workflow_success:
+    - upload_sharepoint</pre>
+            <table class="guide-table">
+              <thead><tr><th>Event</th><th>When it fires</th></tr></thead>
+              <tbody>
+                <tr><td>on_start</td><td>Before any step runs</td></tr>
+                <tr><td>on_step_success</td><td>After each successful step</td></tr>
+                <tr><td>on_step_error</td><td>After a step fails</td></tr>
+                <tr><td>on_crawl_finished</td><td>After the crawl step, regardless of item count</td></tr>
+                <tr><td>on_new_items_found</td><td>After crawl, only if items &gt; 0</td></tr>
+                <tr><td>on_workflow_failed</td><td>If any step errors out</td></tr>
+                <tr><td>on_workflow_success</td><td>All steps completed successfully</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- Notifications -->
+        <details>
+          <summary>Notifications — Slack, Email, SharePoint</summary>
+          <div class="guide-body">
+            <p>All credentials are read from <b>environment variables</b>. Never put secrets in the YAML file.</p>
+            <h4>Slack</h4>
+            <pre class="g">notify:
+  slack:
+    token_env: SLACK_TOKEN     # name of the env var holding your bot token
+    channel: "#my-channel"
+    test_channel: "#my-dev"    # optional separate test channel
+
+# Then set the env var:
+# export SLACK_TOKEN=xoxb-your-token</pre>
+            <h4>Email (SMTP)</h4>
+            <pre class="g">notify:
+  email:
+    smtp_host: smtp.gmail.com
+    smtp_port: 587
+    from_addr: me@example.com
+    to_addrs: [you@example.com]
+    username_env: SMTP_USER
+    password_env: SMTP_PASS</pre>
+            <h4>SharePoint (Microsoft Graph)</h4>
+            <pre class="g">notify:
+  sharepoint:
+    tenant_id_env:     SP_TENANT_ID
+    client_id_env:     SP_CLIENT_ID
+    client_secret_env: SP_CLIENT_SECRET
+    site_url: "https://tenant.sharepoint.com/sites/MySite"
+    drive_id: "YOUR_DRIVE_ID"
+    remote_folder: "General/reports"
+    keep_only_latest: false   # true = replace old files</pre>
+          </div>
+        </details>
+
+        <!-- Custom steps -->
+        <details>
+          <summary>Writing a Custom Step</summary>
+          <div class="guide-body">
+            <pre class="g">from scraperkit.core.base import BaseStep
+from scraperkit.core.context import RunContext
+from scraperkit.core.registry import register_step
+
+@register_step("my_step")
+class MyStep(BaseStep):
+    def execute(self, ctx: RunContext) -> dict:
+        # ctx.items  — current items list (modify in-place)
+        # ctx.config — full ProjectConfig
+        # ctx.meta   — shared dict between steps
+        # ctx.output_dir — pathlib.Path to output folder
+
+        for item in ctx.items:
+            item["enriched"] = True
+
+        return {"enriched": len(ctx.items)}</pre>
+            <p>Register it before running:</p>
+            <pre class="g">import my_module.steps.my_step   # triggers @register_step
+from scraperkit.core.config import load_config
+from scraperkit.core.runner import WorkflowRunner
+WorkflowRunner(load_config("project.yaml")).run()</pre>
+            <p>Then use it in your YAML:</p>
+            <pre class="g">workflow:
+  - crawl
+  - my_step
+  - export_json</pre>
+          </div>
+        </details>
+
+        <!-- CLI Reference -->
+        <details>
+          <summary>CLI Reference</summary>
+          <div class="guide-body">
+            <pre class="g">scraperkit run &lt;config.yaml&gt;            # run a workflow
+scraperkit run &lt;config.yaml&gt; --dry-run  # validate config, don't execute
+scraperkit run &lt;config.yaml&gt; -o ./out   # custom output directory
+scraperkit run &lt;config.yaml&gt; -l DEBUG   # verbose logging
+
+scraperkit serve                         # admin panel at localhost:8000
+scraperkit serve --host 0.0.0.0 --port 9000
+
+scraperkit runs                          # table of recent runs
+scraperkit runs --project my_project     # filter by project
+scraperkit show &lt;run_id&gt;                 # step-by-step detail</pre>
+          </div>
+        </details>
+
+      </div><!-- /.guide -->
+    </div>
+  </div>
+
+</div><!-- /#main -->
+
+<!-- ═══ Run Detail Drawer ═════════════════════════════════════════════════ -->
+<div id="overlay" onclick="closeDrawer()"></div>
+<div id="drawer">
+  <div class="drawer-hd">
+    <h3 id="drawer-title">Run Detail</h3>
+    <button class="btn btn-ghost btn-sm" onclick="closeDrawer()">✕ Close</button>
+  </div>
+  <div class="dtabs">
+    <div class="dtab active" onclick="switchDTab(this,'dtab-info')">Info</div>
+    <div class="dtab" onclick="switchDTab(this,'dtab-steps')">Steps</div>
+    <div class="dtab" onclick="switchDTab(this,'dtab-files')">Files</div>
+  </div>
+  <div class="drawer-body">
+    <div class="dtab-pane active" id="dtab-info"></div>
+    <div class="dtab-pane" id="dtab-steps"></div>
+    <div class="dtab-pane" id="dtab-files"></div>
+  </div>
+</div>
+
+<!-- ═══ File Preview Modal ═══════════════════════════════════════════════ -->
+<div id="preview-overlay" onclick="closePreview(event)">
+  <div id="preview-modal" onclick="event.stopPropagation()">
+    <div class="pm-hd">
+      <h3 id="pm-title">—</h3>
+      <a id="pm-download" class="btn btn-ghost btn-sm" download>⬇ Download</a>
+      <button class="btn btn-ghost btn-sm" onclick="closePreview()">✕</button>
+    </div>
+    <div class="pm-body" id="pm-body">Loading…</div>
+  </div>
+</div>
+
+<script>
+const API='';
+let _sl=false, _sse=null, _pollT=null, _currentRunId=null;
+
+/* ─── Sidebar (mobile) ────────────────────────────────────────────────── */
+function openSidebar(){document.getElementById('sidebar').classList.add('open');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');}
+// Sync all menu buttons visibility
+(function(){
+  const mbs=document.querySelectorAll('[id^="menu-btn"]');
+  function sync(){mbs.forEach(b=>b.style.display=window.innerWidth<=720?'block':'none');}
+  window.addEventListener('resize',sync);sync();
+})();
+
+/* ─── Navigation ──────────────────────────────────────────────────────── */
+function nav(el){
+  event.preventDefault();
+  document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  const pid=el.dataset.panel;
+  document.getElementById(pid).classList.add('active');
+  closeSidebar();
+  if(pid==='panel-overview') loadOverview();
+  if(pid==='panel-jobs'){loadJobs();startPoll();}
+  if(pid==='panel-runs') loadRuns();
+  if(pid==='panel-files') loadFilesPanel();
+  if(pid==='panel-configs') loadConfigs();
+  if(pid==='panel-new-run') loadQuickConfigs();
+}
+
+/* ─── Utils ───────────────────────────────────────────────────────────── */
+async function api(path,opts={}){
+  const r=await fetch(API+path,opts);
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||r.statusText);}
+  if(r.status===204)return null;
+  return r.json();
+}
+const fmt=dt=>dt?new Date(dt).toLocaleString():'—';
+const dur=s=>s!=null?s.toFixed(1)+'s':'—';
+const fmtSize=b=>b>1048576?(b/1048576).toFixed(1)+'MB':b>1024?(b/1024).toFixed(1)+'KB':b+'B';
+const badge=s=>`<span class="badge ${s}">${s}</span>`;
+const $=id=>document.getElementById(id);
+const html=(id,h)=>{$(id).innerHTML=h;};
+// Encode a string for safe use inside a double-quoted HTML attribute as a JS argument
+const jsq=s=>"'"+s.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"'";
+
+/* ─── Overview ────────────────────────────────────────────────────────── */
+async function loadOverview(){
+  const[runs,projects,jobs]=await Promise.all([api('/api/runs?limit=100'),api('/api/projects'),api('/api/jobs')]);
+  $('ov-total').textContent=runs.length;
+  $('ov-ok').textContent=runs.filter(r=>r.status==='success').length;
+  $('ov-fail').textContent=runs.filter(r=>r.status==='failed').length;
+  $('ov-proj').textContent=projects.length;
+  $('ov-live').textContent=jobs.filter(j=>j.status==='running').length;
+  html('ov-proj-tbl',projects.length?projects.map(p=>`
+    <tr class="clickable" onclick="filterToProject('${p.project}')">
+      <td><code>${p.project}</code></td><td>${p.total_runs}</td>
+      <td>${fmt(p.last_run)}</td><td>${p.last_status?badge(p.last_status):'—'}</td>
+      <td><button class="btn btn-primary btn-sm" onclick="event.stopPropagation();startByProject('${p.project}')">▶ Run</button></td>
+    </tr>`).join(''):'<tr class="empty-row"><td colspan="5">No projects yet</td></tr>');
+  const recent=runs.slice(0,8);
+  html('ov-runs-tbl',recent.length?recent.map(r=>`
+    <tr class="clickable" onclick="openDrawer('${r.run_id}')">
+      <td><code>${r.run_id}</code></td><td>${r.project}</td><td>${badge(r.status)}</td>
+      <td>${fmt(r.started_at)}</td><td>${dur(r.duration_s)}</td><td>${r.item_count??'—'}</td>
+    </tr>`).join(''):'<tr class="empty-row"><td colspan="6">No runs yet</td></tr>');
+}
+
+/* ─── Live Jobs ─────────────────────────────────────────────────────────── */
+function startPoll(){if(_pollT)clearInterval(_pollT);_pollT=setInterval(loadJobs,3000);}
+async function loadJobs(){
+  const jobs=await api('/api/jobs');
+  const active=jobs.filter(j=>j.status==='running'||j.status==='queued');
+  const b=$('jobs-badge');
+  if(active.length){b.textContent=active.length;b.style.display='inline';}else{b.style.display='none';}
+  $('ov-live')&&($('ov-live').textContent=active.length);
+  html('jobs-tbl',jobs.length?jobs.slice(0,20).map(j=>`
+    <tr>
+      <td><code>${j.run_id}</code></td><td>${j.project}</td><td>${badge(j.status)}</td>
+      <td>${fmt(j.started_at)}</td><td>${j.pid||'—'}</td>
+      <td style="display:flex;gap:.3rem;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="attachConsole('${j.run_id}')">📟 Console</button>
+        ${j.status==='running'?`<button class="btn btn-danger btn-sm" onclick="cancelJob('${j.run_id}')">✕</button>`:''}
+      </td>
+    </tr>`).join(''):'<tr class="empty-row"><td colspan="6">No jobs yet — start one from "New Crawl"</td></tr>');
+}
+async function cancelJob(id){if(!confirm(`Cancel job ${id}?`))return;await api(`/api/jobs/${id}`,{method:'DELETE'});loadJobs();}
+function attachConsole(id){
+  $('console-section').style.display='block';$('console-job-id').textContent=id;
+  clearConsole();
+  if(_sse){_sse.close();_sse=null;}
+  const sse=new EventSource(`${API}/api/jobs/${id}/logs/stream`);_sse=sse;
+  sse.onmessage=e=>{
+    if(e.data==='__DONE__'){appendCL('[stream closed]','dim');sse.close();return;}
+    if(e.data==='__PING__')return;
+    appendCL(e.data);
+  };
+  sse.onerror=()=>{appendCL('[connection error]','err');sse.close();};
+}
+function appendCL(line,cls=''){
+  const out=$('console-out'),d=document.createElement('div');
+  d.className='cl'+(cls?' '+cls:clsCL(line));d.textContent=line;
+  out.appendChild(d);if(!_sl)out.scrollTop=out.scrollHeight;
+}
+function clsCL(l){
+  const s=l.toLowerCase();
+  if(s.includes('error')||s.includes('failed')||s.includes('traceback'))return' err';
+  if(s.includes('warn'))return' warn';
+  if(s.includes('finish')||s.includes('success')||s.includes('complet'))return' ok';
+  if(s.startsWith('[scraperkit]'))return' info';
+  return'';
+}
+function clearConsole(){$('console-out').innerHTML='<span class="blink"></span>';}
+function toggleSL(){_sl=!_sl;$('btn-sl').textContent=`Auto-scroll: ${_sl?'OFF':'ON'}`;}
+
+/* ─── Run History ─────────────────────────────────────────────────────── */
+async function loadRuns(){
+  const proj=$('runs-filter').value.trim();
+  const url=proj?`/api/runs?project=${encodeURIComponent(proj)}&limit=100`:'/api/runs?limit=100';
+  const runs=await api(url);
+  html('runs-tbl',runs.length?runs.map(r=>`
+    <tr class="clickable" onclick="openDrawer('${r.run_id}')">
+      <td><code>${r.run_id}</code></td><td>${r.project}</td><td>${badge(r.status)}</td>
+      <td>${fmt(r.started_at)}</td><td>${dur(r.duration_s)}</td><td>${r.item_count??'—'}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openDrawer('${r.run_id}')">Details</button></td>
+    </tr>`).join(''):'<tr class="empty-row"><td colspan="7">No runs found</td></tr>');
+}
+
+/* ─── Files panel ─────────────────────────────────────────────────────── */
+async function loadFilesPanel(){
+  const proj=$('files-filter').value.trim().toLowerCase();
+  const runs=await api('/api/runs?limit=200');
+  const filtered=proj?runs.filter(r=>r.project.toLowerCase().includes(proj)):runs;
+  // Fetch files for all runs in parallel (limit to 50 most recent)
+  const subset=filtered.slice(0,50);
+  const fileGroups=await Promise.all(subset.map(r=>
+    api(`/api/runs/${r.run_id}/files`).then(files=>files.map(f=>({...f,project:r.project,run_id:r.run_id,run_started:r.started_at}))).catch(()=>[])
+  ));
+  const existingFiles=fileGroups.flat().filter(f=>f.exists);
+  if(!existingFiles.length){
+    html('files-tbl','<tr class="empty-row"><td colspan="6">No output files found yet. Run a crawl first.</td></tr>');
+    return;
+  }
+  html('files-tbl',existingFiles.map(f=>{
+    const ep=encodeURIComponent(f.path),fp=jsq(f.path),fn=jsq(f.filename);
+    return`<tr>
+      <td><span style="font-family:var(--mono);font-size:.76rem">${f.filename}</span></td>
+      <td><code>${f.step}</code></td>
+      <td>${f.project}</td>
+      <td><code>${f.run_id}</code></td>
+      <td>${fmtSize(f.size_bytes)}</td>
+      <td style="display:flex;gap:.3rem;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="previewFile(${fp},${fn})">👁 Preview</button>
+        <a class="btn btn-ghost btn-sm" href="/api/files/download?path=${ep}" download="${f.filename}">⬇</a>
+        <button class="btn btn-danger btn-sm" onclick="deleteFile(${fp})">🗑</button>
+      </td>
+    </tr>`;}).join(''));
+}
+
+/* ─── Run detail drawer ───────────────────────────────────────────────── */
+async function openDrawer(runId){
+  _currentRunId=runId;
+  $('drawer-title').textContent=`Run: ${runId}`;
+  // reset tabs
+  document.querySelectorAll('.dtab').forEach((t,i)=>{t.classList.toggle('active',i===0);});
+  document.querySelectorAll('.dtab-pane').forEach((p,i)=>{p.classList.toggle('active',i===0);});
+  $('dtab-info').innerHTML='<span style="color:var(--muted)">Loading…</span>';
+  $('dtab-steps').innerHTML='';
+  $('dtab-files').innerHTML='<span style="color:var(--muted)">Loading…</span>';
+  $('drawer').classList.add('open');$('overlay').classList.add('open');
+
+  const[run,files]=await Promise.all([api(`/api/runs/${runId}`),api(`/api/runs/${runId}/files`).catch(()=>[])]);
+
+  // Info tab
+  $('dtab-info').innerHTML=`
+    <div class="kv">
+      <span class="k">Project</span><span class="v">${run.project}</span>
+      <span class="k">Status</span><span class="v">${badge(run.status)}</span>
+      <span class="k">Started</span><span class="v">${fmt(run.started_at)}</span>
+      <span class="k">Finished</span><span class="v">${fmt(run.finished_at)}</span>
+      <span class="k">Duration</span><span class="v">${dur(run.duration_s)}</span>
+      <span class="k">Items</span><span class="v">${run.item_count??'—'}</span>
+      ${run.error?`<span class="k">Error</span><span class="v" style="color:var(--red)">${run.error}</span>`:''}
+    </div>`;
+
+  // Steps tab
+  const steps=(run.steps||[]);
+  $('dtab-steps').innerHTML=steps.length?`<div class="step-list">${steps.map(s=>`
+    <div class="step-item">
+      ${badge(s.status)}
+      <span class="step-name">${s.step}</span>
+      <span class="step-meta">
+        ${s.duration_s!=null?s.duration_s.toFixed(2)+'s':''} &nbsp; in:${s.items_in??0} → out:${s.items_out??0}
+        ${s.error?`<div class="step-err">✗ ${s.error}</div>`:''}
+      </span>
+    </div>`).join('')}</div>`:'<span style="color:var(--muted);font-size:.8rem">No step data</span>';
+
+  // Files tab — only show files that exist on disk
+  const existFiles=files.filter(f=>f.exists);
+  $('dtab-files').innerHTML=existFiles.length?existFiles.map(f=>{
+    const ep=encodeURIComponent(f.path),fp=jsq(f.path),fn=jsq(f.filename);
+    return`<div class="file-row">
+      <span class="file-icon">${f.ext==='.json'?'{}':f.ext==='.xlsx'?'📊':'📄'}</span>
+      <div class="file-info">
+        <div class="file-name" title="${f.path}">${f.filename}</div>
+        <div class="file-meta">Step: ${f.step} &nbsp;·&nbsp; ${fmtSize(f.size_bytes)}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="previewFile(${fp},${fn})">👁 Preview</button>
+      <a class="btn btn-ghost btn-sm" href="/api/files/download?path=${ep}" download="${f.filename}">⬇</a>
+      <button class="btn btn-danger btn-sm" onclick="deleteFile(${fp})">🗑</button>
+    </div>`;}).join(''):'<span style="color:var(--muted);font-size:.8rem">No output files for this run.</span>';
+}
+
+function closeDrawer(){$('drawer').classList.remove('open');$('overlay').classList.remove('open');}
+
+function switchDTab(el,pane){
+  document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.dtab-pane').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');$(pane).classList.add('active');
+}
+
+/* ─── File Preview Modal ──────────────────────────────────────────────── */
+async function previewFile(path,filename){
+  $('pm-title').textContent=filename;
+  $('pm-download').href=`/api/files/download?path=${encodeURIComponent(path)}`;
+  $('pm-download').download=filename;
+  $('pm-body').innerHTML='<span style="color:var(--muted)">Loading…</span>';
+  $('preview-overlay').classList.add('open');
+
+  try{
+    const data=await api(`/api/files/preview?path=${encodeURIComponent(path)}&limit=200`);
+    renderPreview(data);
+  }catch(e){
+    $('pm-body').innerHTML=`<span style="color:var(--red)">Error: ${e.message}</span>`;
+  }
+}
+
+function renderPreview(data){
+  if(data.type==='json'){
+    const meta=Object.entries(data.meta||{}).map(([k,v])=>`<span><b>${k}:</b> ${JSON.stringify(v)}</span>`).join(' &nbsp; ');
+    const cols=data.columns||[];
+    const rows=data.rows||[];
+    const note=data.total>data.showing?`Showing first ${data.showing} of ${data.total} items`:`${data.total} items`;
+    $('pm-body').innerHTML=`
+      <div class="pm-meta">${meta}</div>
+      <div class="showing-note">${note}</div>
+      <div class="data-tbl-wrap">
+        <table class="data-tbl">
+          <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td title="${r[c]??''}">${r[c]??''}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  }else if(data.type==='excel'){
+    const sheets=data.sheets||[];
+    let activeSheet=0;
+    function renderSheet(i){
+      const s=sheets[i];
+      const note=s.total>s.showing?`Showing first ${s.showing} of ${s.total} rows`:`${s.total} rows`;
+      return`
+        <div class="showing-note">${note}</div>
+        <div class="data-tbl-wrap">
+          <table class="data-tbl">
+            <thead><tr>${s.columns.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+            <tbody>${s.rows.map(r=>`<tr>${r.map(c=>`<td title="${c}">${c}</td>`).join('')}</tr>`).join('')}</tbody>
+          </table>
+        </div>`;
+    }
+    $('pm-body').innerHTML=`
+      <div class="sheet-tabs">${sheets.map((s,i)=>`<div class="sheet-tab${i===0?' active':''}" onclick="switchSheet(this,${i})">${s.sheet}</div>`).join('')}</div>
+      <div id="sheet-content">${renderSheet(0)}</div>`;
+    window._sheets=sheets;window._renderSheet=renderSheet;
+  }else if(data.type==='json_object'){
+    $('pm-body').innerHTML=`<pre class="g">${JSON.stringify(data.data,null,2)}</pre>`;
+  }else{
+    $('pm-body').innerHTML=`<pre class="g">${data.content||''}</pre>`;
+  }
+}
+
+function switchSheet(el,i){
+  document.querySelectorAll('.sheet-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  $('sheet-content').innerHTML=window._renderSheet(i);
+}
+
+function closePreview(e){
+  if(!e||e.target===$('preview-overlay'))$('preview-overlay').classList.remove('open');
+}
+
+async function deleteFile(path){
+  if(!confirm(`Delete file?\n\n${path}\n\nThis cannot be undone.`))return;
+  try{
+    await api(`/api/files?path=${encodeURIComponent(path)}`,{method:'DELETE'});
+    // Refresh whichever view is active
+    const active=document.querySelector('.panel.active');
+    if(active&&active.id==='panel-files')loadFilesPanel();
+    if(_currentRunId)openDrawer(_currentRunId);
+  }catch(e){alert('Delete failed: '+e.message);}
+}
+
+/* ─── Configs ─────────────────────────────────────────────────────────── */
+let _editName=null;
+async function loadConfigs(){
+  const cfgs=await api('/api/configs');
+  if(!cfgs.length){
+    $('configs-list').innerHTML=`<div style="color:var(--muted);font-size:.82rem;padding:.75rem 0">
+      No configs yet. <a href="#" onclick="newConfig()" style="color:var(--accent)">Create one</a> or add .yaml files to <code>configs/</code>.</div>`;
+    return;
+  }
+  $('configs-list').innerHTML=cfgs.map(c=>`
+    <div class="cfg-card">
+      <div><div class="cfg-name">${c.name}</div><div class="cfg-meta">${c.filename} · ${fmtSize(c.size_bytes)}</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="editConfig('${c.name}')">✎ Edit</button>
+      <button class="btn btn-primary btn-sm" onclick="runConfig('${c.name}')">▶ Run</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteConfig('${c.name}')">🗑</button>
+    </div>`).join('');
+}
+async function editConfig(name){
+  const d=await api(`/api/configs/${name}`);
+  _editName=name;$('editor-title').textContent=`Edit: ${name}`;
+  $('editor-name').value=name;$('config-editor').value=d.content;
+  $('vmsg').className='vmsg';$('config-editor-section').style.display='block';
+  $('config-editor').scrollIntoView({behavior:'smooth'});
+}
+function newConfig(){
+  _editName=null;$('editor-title').textContent='New Config';$('editor-name').value='';
+  $('config-editor').value=`name: my_project\n\nstart_urls:\n  - https://example.com\n\ncrawler:\n  item_selector: ".item"\n  fields:\n    title: ".title::text"\n    url: "a::attr(href)"\n\nworkflow:\n  - crawl\n  - clean\n  - deduplicate\n  - export_json\n  - export_excel\n`;
+  $('vmsg').className='vmsg';$('config-editor-section').style.display='block';
+}
+async function validateEditor(){
+  try{
+    const r=await api('/api/configs/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:$('config-editor').value})});
+    $('vmsg').className=r.valid?'vmsg ok':'vmsg err';
+    $('vmsg').textContent=r.valid?`✓ Valid — project: "${r.name}" | workflow: ${r.workflow.join(' → ')}`:`✗ ${r.error}`;
+  }catch(e){$('vmsg').className='vmsg err';$('vmsg').textContent='✗ '+e.message;}
+}
+async function saveConfig(){
+  const name=$('editor-name').value.trim(),content=$('config-editor').value;
+  if(!name){alert('Enter a config name');return;}
+  try{
+    await api(_editName?`/api/configs/${_editName}`:'/api/configs',{method:_editName?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,content})});
+    closeEditor();loadConfigs();
+  }catch(e){alert('Save failed: '+e.message);}
+}
+function closeEditor(){$('config-editor-section').style.display='none';_editName=null;}
+async function deleteConfig(name){if(!confirm(`Delete "${name}"?`))return;await api(`/api/configs/${name}`,{method:'DELETE'});loadConfigs();}
+async function runConfig(name){
+  const run=await api('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config_name:name})});
+  document.querySelector('[data-panel="panel-jobs"]').click();
+  setTimeout(()=>attachConsole(run.run_id),300);
+}
+
+/* ─── New Crawl ─────────────────────────────────────────────────────────── */
+async function loadQuickConfigs(){
+  const cfgs=await api('/api/configs');
+  $('quick-select').innerHTML=cfgs.length?cfgs.map(c=>`<option value="${c.name}">${c.name}</option>`).join(''):'<option value="">No saved configs</option>';
+}
+async function quickStart(){
+  const name=$('quick-select').value;if(!name){alert('Select a config');return;}
+  const run=await api('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config_name:name})});
+  document.querySelector('[data-panel="panel-jobs"]').click();
+  setTimeout(()=>attachConsole(run.run_id),300);
+}
+async function validateInline(){
+  try{
+    const r=await api('/api/configs/validate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:$('inline-editor').value})});
+    $('inline-vmsg').className=r.valid?'vmsg ok':'vmsg err';
+    $('inline-vmsg').textContent=r.valid?`✓ Valid — "${r.name}" | ${r.workflow.join(' → ')}`:`✗ ${r.error}`;
+  }catch(e){$('inline-vmsg').className='vmsg err';$('inline-vmsg').textContent='✗ '+e.message;}
+}
+async function runInline(){
+  try{
+    const run=await api('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({inline_config:$('inline-editor').value})});
+    document.querySelector('[data-panel="panel-jobs"]').click();
+    setTimeout(()=>attachConsole(run.run_id),300);
+  }catch(e){alert('Failed: '+e.message);}
+}
+
+/* ─── Cross-panel helpers ────────────────────────────────────────────────── */
+function filterToProject(p){$('runs-filter').value=p;document.querySelector('[data-panel="panel-runs"]').click();}
+async function startByProject(p){
+  try{
+    const d=await api(`/api/configs/${p}`);
+    const run=await api('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({inline_config:d.content})});
+    document.querySelector('[data-panel="panel-jobs"]').click();
+    setTimeout(()=>attachConsole(run.run_id),300);
+  }catch(e){alert(`No config found for "${p}". Use New Crawl to start with inline config.`);}
+}
+
+/* ─── Init ─────────────────────────────────────────────────────────────── */
+loadOverview();
+</script>
+</body>
+</html>

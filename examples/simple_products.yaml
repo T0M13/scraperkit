@@ -1,0 +1,32 @@
+# Simple example: crawl a product listing page and export to JSON + Excel
+name: simple_products
+
+start_urls:
+  - https://books.toscrape.com/catalogue/page-1.html
+
+crawler:
+  item_selector: "article.product_pod"
+  fields:
+    title: "h3 a::attr(title)"
+    price: "p.price_color::text"
+    rating: "p.star-rating::attr(class)"
+    url: "h3 a::attr(href)"
+  pagination:
+    type: css
+    selector: "li.next a::attr(href)"
+  delay_min: 1.0
+  delay_max: 3.0
+
+compare:
+  key_field: url
+
+workflow:
+  - crawl
+  - clean
+  - deduplicate
+  - export_json
+  - export_excel
+  - compare_previous
+
+output:
+  directory: output

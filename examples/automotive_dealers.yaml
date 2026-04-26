@@ -1,0 +1,71 @@
+# Advanced example: dealer directory monitoring with change detection, backup, and notifications
+name: dealer_directory
+
+start_urls:
+  - https://www.example-dealers.com/find-a-dealer/
+
+crawler:
+  item_selector: ".dealer-card"
+  fields:
+    name:
+      type: css
+      selector: ".dealer-name::text"
+      transform: strip
+    location:
+      type: css
+      selector: ".dealer-location::text"
+      transform: strip
+    phone:
+      type: css
+      selector: ".dealer-phone::text"
+      transform: strip
+    url:
+      type: css
+      selector: "a.dealer-link::attr(href)"
+  pagination:
+    type: css
+    selector: "a.pagination-next::attr(href)"
+  delay_min: 3.0
+  delay_max: 7.0
+  autothrottle: true
+  rotate_useragent: true
+
+compare:
+  key_field: url
+  fuzzy_fields:
+    - name
+    - location
+  fuzzy_threshold: 97
+
+workflow:
+  - crawl
+  - clean
+  - deduplicate
+  - export_json
+  - export_excel
+  - compare_previous
+  - backup
+  # Uncomment to enable notifications (requires env vars):
+  # - notify_slack
+  # - upload_sharepoint
+
+hooks:
+  on_workflow_failed:
+    - notify_slack   # only fires if SLACK_TOKEN is set
+
+output:
+  directory: output
+
+notify:
+  slack:
+    token_env: SLACK_TOKEN
+    channel: "#scraper-alerts"
+    test_channel: "#scraper-dev"
+  sharepoint:
+    tenant_id_env:     SP_TENANT_ID
+    client_id_env:     SP_CLIENT_ID
+    client_secret_env: SP_CLIENT_SECRET
+    site_url: "https://yourtenant.sharepoint.com/sites/YourSite"
+    drive_id: "YOUR_DRIVE_ID"
+    remote_folder: "General/dealer-reports"
+    keep_only_latest: false

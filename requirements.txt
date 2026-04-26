@@ -1,0 +1,15 @@
+# Core
+scrapy>=2.11
+pydantic>=2.6
+pyyaml>=6.0
+typer>=0.12
+fastapi>=0.111
+uvicorn[standard]>=0.29
+openpyxl>=3.1
+requests>=2.31
+
+# Optional — install as needed
+# fuzzywuzzy>=0.18         # compare_previous fuzzy matching
+# python-Levenshtein>=0.25 # speeds up fuzzywuzzy
+# slack-sdk>=3.27          # notify_slack step
+# pandas>=2.2              # advanced Excel/data ops

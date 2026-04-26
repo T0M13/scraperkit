@@ -1,0 +1,40 @@
+# JSON API example: crawl a REST API endpoint and export results
+name: api_example
+
+start_urls:
+  - https://jsonplaceholder.typicode.com/posts
+
+crawler:
+  # No item_selector → treats whole response as one item
+  fields:
+    id:
+      type: json
+      selector: "id"
+    title:
+      type: json
+      selector: "title"
+      transform: strip
+    body:
+      type: json
+      selector: "body"
+    user_id:
+      type: json
+      selector: "userId"
+  delay_min: 0.5
+  delay_max: 1.0
+  autothrottle: false
+  respect_robots: false
+
+compare:
+  key_field: id
+
+workflow:
+  - crawl
+  - clean
+  - deduplicate
+  - export_json
+  - export_excel
+  - compare_previous
+
+output:
+  directory: output
