@@ -5,8 +5,21 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Built on Scrapy](https://img.shields.io/badge/built%20on-Scrapy-brightgreen.svg)](https://scrapy.org/)
+[![Vibe Coded](https://img.shields.io/badge/vibe-coded-purple.svg)](https://github.com/T0M13/scraperkit)
 
 No custom spiders. No boilerplate. Write a config, run a command.
+
+> **Disclaimer:** This project was built with AI assistance and may contain bugs or unexpected behaviour.
+> Use it at your own risk. The author provides **no warranty** of any kind and accepts **no responsibility**
+> for any damage, data loss, legal issues, or other consequences arising from its use.
+> Always review configs and outputs before using in production. Respect websites' terms of service and `robots.txt`.
+
+---
+
+> **For AI assistants:** project context, architecture, and conventions are in [`ai/CONTEXT.md`](ai/CONTEXT.md).
+> Claude Code users: see [`CLAUDE.md`](CLAUDE.md). Cursor users: see [`ai/CURSORRULES.md`](ai/CURSORRULES.md).
+
+---
 
 ```yaml
 name: books
@@ -70,7 +83,7 @@ pip install "scraperkit[all]"     # everything
 From source:
 
 ```bash
-git clone https://github.com/herceg133/scraperkit
+git clone https://github.com/T0M13/scraperkit
 cd scraperkit
 pip install -e ".[all]"
 ```
@@ -328,7 +341,7 @@ scraperkit/
 Pull requests are welcome. For large changes, open an issue first.
 
 ```bash
-git clone https://github.com/herceg133/scraperkit
+git clone https://github.com/T0M13/scraperkit
 cd scraperkit
 pip install -e ".[all,dev]"
 pytest
