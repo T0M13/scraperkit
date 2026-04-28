@@ -28,6 +28,7 @@ class StartJobRequest(BaseModel):
     config_path: str | None = None   # path to an existing .yaml file
     config_name: str | None = None   # name of a managed config (in configs/)
     inline_config: str | None = None # raw YAML content
+    task: str | None = None          # named task from the config's tasks: block
 
 
 class WriteConfigRequest(BaseModel):
@@ -78,6 +79,12 @@ def create_app(
         if not run:
             raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
         return run
+
+    @app.delete("/api/runs/{run_id}", status_code=204)
+    def delete_run(run_id: str):
+        deleted = store.delete_run(run_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
 
     @app.get("/api/projects/{project}/latest")
     def get_latest_run(project: str):
@@ -181,8 +188,8 @@ def create_app(
         else:
             raise HTTPException(status_code=400, detail="Provide config_path, config_name, or inline_config")
 
-        run_id = jobs.start(config_path, project, db_path=str(db_path))
-        return {"run_id": run_id, "project": project, "status": "running"}
+        run_id = jobs.start(config_path, project, db_path=str(db_path), task=req.task)
+        return {"run_id": run_id, "project": project, "task": req.task, "status": "running"}
 
     @app.delete("/api/jobs/{run_id}")
     def cancel_job(run_id: str):
@@ -248,6 +255,26 @@ def create_app(
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail=f"Config '{name}' not found")
         return {"name": name, "content": content}
+
+    @app.get("/api/configs/{name}/tasks")
+    def get_config_tasks(name: str):
+        """Return the named tasks defined in a config's tasks: block."""
+        try:
+            content = cfgs.read_config(name)
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail=f"Config '{name}' not found")
+        import yaml as _yaml
+        try:
+            data = _yaml.safe_load(content) or {}
+            tasks_raw = data.get("tasks", {}) or {}
+            tasks = [
+                {"name": k, "workflow": v.get("workflow", []), "description": v.get("description")}
+                if isinstance(v, dict) else {"name": k, "workflow": v, "description": None}
+                for k, v in tasks_raw.items()
+            ]
+            return {"tasks": tasks, "default_task": data.get("default_task")}
+        except Exception:
+            return {"tasks": [], "default_task": None}
 
     @app.post("/api/configs", status_code=201)
     def create_config(req: WriteConfigRequest):

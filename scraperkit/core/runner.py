@@ -19,10 +19,26 @@ class WorkflowRunner:
         config: ProjectConfig,
         output_dir: str | Path | None = None,
         run_id: str | None = None,
+        task: str | None = None,
     ):
         self.config = config
         self.output_dir = Path(output_dir or config.output.directory) / config.name
         self._run_id = run_id
+        self._task = task
+
+    def _resolve_workflow(self) -> list[str]:
+        """Return the workflow list to execute, respecting --task and default_task."""
+        if self._task:
+            if self._task not in self.config.tasks:
+                available = list(self.config.tasks.keys())
+                raise ValueError(
+                    f"Task '{self._task}' not found in config '{self.config.name}'. "
+                    f"Available tasks: {available}"
+                )
+            return self.config.tasks[self._task].workflow
+        if self.config.default_task and self.config.default_task in self.config.tasks:
+            return self.config.tasks[self.config.default_task].workflow
+        return self.config.workflow
 
     def run(self) -> RunContext:
         kwargs: dict = {"config": self.config, "output_dir": self.output_dir}
@@ -35,17 +51,20 @@ class WorkflowRunner:
         from scraperkit.hooks import HookDispatcher
         hooks = HookDispatcher(self.config.hooks)
 
+        workflow = self._resolve_workflow()
+        task_label = f" [task={self._task}]" if self._task else ""
         logger.info(
-            "Starting workflow '%s' [run_id=%s] steps=%s",
+            "Starting workflow '%s'%s [run_id=%s] steps=%s",
             self.config.name,
+            task_label,
             ctx.run_id,
-            self.config.workflow,
+            workflow,
         )
 
         hooks.fire("on_start", ctx)
 
         failed = False
-        for step_name in self.config.workflow:
+        for step_name in workflow:
             try:
                 step_cls = get_step(step_name)
             except KeyError as exc:
@@ -93,6 +112,7 @@ class WorkflowRunner:
         summary: dict[str, Any] = {
             "run_id": ctx.run_id,
             "project": self.config.name,
+            "task": self._task,
             "started_at": ctx.started_at.isoformat(),
             "finished_at": finished_at.isoformat(),
             "total_duration_s": round(total_s, 3),

@@ -181,9 +181,12 @@
     label{font-size:.72rem;color:var(--muted);display:block;margin-bottom:.25rem;}
 
     /* ── Config cards ────────────────────────────────── */
-    .cfg-card{background:var(--surface);border:1px solid var(--border);border-radius:.55rem;padding:.9rem 1.1rem;display:flex;align-items:center;gap:.8rem;margin-bottom:.5rem;flex-wrap:wrap;}
-    .cfg-name{font-weight:600;font-size:.88rem;flex:1;min-width:100px;}
+    .cfg-card{background:var(--surface);border:1px solid var(--border);border-radius:.55rem;padding:.9rem 1.1rem;display:flex;flex-direction:column;gap:.55rem;margin-bottom:.5rem;}
+    .cfg-card-header{display:flex;align-items:center;gap:.75rem;}
+    .cfg-name{font-weight:600;font-size:.88rem;}
     .cfg-meta{font-size:.7rem;color:var(--muted);}
+    .cfg-tasks{display:flex;align-items:center;gap:.35rem;padding:.45rem .6rem;background:var(--surface2);border-radius:.35rem;flex-wrap:wrap;}
+    .cfg-tasks-lbl{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-right:.2rem;white-space:nowrap;}
 
     /* ── Guide ───────────────────────────────────────── */
     .guide{max-width:820px;}
@@ -299,8 +302,8 @@
     </div>
     <div class="content">
       <div class="tbl-wrap" style="margin-bottom:1.25rem">
-        <table><thead><tr><th>Run ID</th><th>Project</th><th>Status</th><th>Started</th><th>PID</th><th>Actions</th></tr></thead>
-        <tbody id="jobs-tbl"><tr class="empty-row"><td colspan="6">No active jobs</td></tr></tbody></table>
+        <table><thead><tr><th>Run ID</th><th>Project</th><th>Task</th><th>Status</th><th>Started</th><th>PID</th><th>Actions</th></tr></thead>
+        <tbody id="jobs-tbl"><tr class="empty-row"><td colspan="7">No active jobs</td></tr></tbody></table>
       </div>
       <div id="console-section" style="display:none">
         <div class="sh">
@@ -329,6 +332,7 @@
       <div class="tbl-wrap">
         <table><thead><tr><th>Run ID</th><th>Project</th><th>Status</th><th>Started</th><th>Duration</th><th>Items</th><th></th></tr></thead>
         <tbody id="runs-tbl"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody></table>
+
       </div>
     </div>
   </div>
@@ -385,7 +389,8 @@
       <div style="margin-bottom:1.5rem">
         <div class="sh"><h3>Quick Start — saved config</h3></div>
         <div class="form-row">
-          <div><label>Saved config</label><select id="quick-select" style="width:260px"><option>Loading…</option></select></div>
+          <div><label>Saved config</label><select id="quick-select" style="width:220px" onchange="loadQuickTasks()"><option>Loading…</option></select></div>
+          <div><label>Task</label><select id="quick-task" style="width:160px"><option value="">— all steps —</option></select></div>
           <button class="btn btn-primary" onclick="quickStart()">▶ Run Now</button>
         </div>
       </div>
@@ -754,6 +759,7 @@ scraperkit show &lt;run_id&gt;                 # step-by-step detail</pre>
 <div id="drawer">
   <div class="drawer-hd">
     <h3 id="drawer-title">Run Detail</h3>
+    <button class="btn btn-danger btn-sm" id="drawer-delete-btn" style="display:none" onclick="deleteRun(_currentRunId,true)">🗑 Delete</button>
     <button class="btn btn-ghost btn-sm" onclick="closeDrawer()">✕ Close</button>
   </div>
   <div class="dtabs">
@@ -859,13 +865,15 @@ async function loadJobs(){
   $('ov-live')&&($('ov-live').textContent=active.length);
   html('jobs-tbl',jobs.length?jobs.slice(0,20).map(j=>`
     <tr>
-      <td><code>${j.run_id}</code></td><td>${j.project}</td><td>${badge(j.status)}</td>
+      <td><code>${j.run_id}</code></td><td>${j.project}</td>
+      <td>${j.task?`<code style="font-size:.72rem">${j.task}</code>`:'<span style="color:var(--muted)">—</span>'}</td>
+      <td>${badge(j.status)}</td>
       <td>${fmt(j.started_at)}</td><td>${j.pid||'—'}</td>
       <td style="display:flex;gap:.3rem;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="attachConsole('${j.run_id}')">📟 Console</button>
         ${j.status==='running'?`<button class="btn btn-danger btn-sm" onclick="cancelJob('${j.run_id}')">✕</button>`:''}
       </td>
-    </tr>`).join(''):'<tr class="empty-row"><td colspan="6">No jobs yet — start one from "New Crawl"</td></tr>');
+    </tr>`).join(''):'<tr class="empty-row"><td colspan="7">No jobs yet — start one from "New Crawl"</td></tr>');
 }
 async function cancelJob(id){if(!confirm(`Cancel job ${id}?`))return;await api(`/api/jobs/${id}`,{method:'DELETE'});loadJobs();}
 function attachConsole(id){
@@ -905,7 +913,10 @@ async function loadRuns(){
     <tr class="clickable" onclick="openDrawer('${r.run_id}')">
       <td><code>${r.run_id}</code></td><td>${r.project}</td><td>${badge(r.status)}</td>
       <td>${fmt(r.started_at)}</td><td>${dur(r.duration_s)}</td><td>${r.item_count??'—'}</td>
-      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openDrawer('${r.run_id}')">Details</button></td>
+      <td style="display:flex;gap:.3rem">
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openDrawer('${r.run_id}')">Details</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteRun('${r.run_id}')">🗑</button>
+      </td>
     </tr>`).join(''):'<tr class="empty-row"><td colspan="7">No runs found</td></tr>');
 }
 
@@ -951,6 +962,7 @@ async function openDrawer(runId){
   $('dtab-steps').innerHTML='';
   $('dtab-files').innerHTML='<span style="color:var(--muted)">Loading…</span>';
   $('drawer').classList.add('open');$('overlay').classList.add('open');
+  $('drawer-delete-btn').style.display='inline-flex';
 
   const[run,files]=await Promise.all([api(`/api/runs/${runId}`),api(`/api/runs/${runId}/files`).catch(()=>[])]);
 
@@ -994,7 +1006,16 @@ async function openDrawer(runId){
     </div>`;}).join(''):'<span style="color:var(--muted);font-size:.8rem">No output files for this run.</span>';
 }
 
-function closeDrawer(){$('drawer').classList.remove('open');$('overlay').classList.remove('open');}
+function closeDrawer(){$('drawer').classList.remove('open');$('overlay').classList.remove('open');$('drawer-delete-btn').style.display='none';}
+
+async function deleteRun(runId,fromDrawer=false){
+  if(!confirm(`Delete run ${runId} from history?\n\nThis removes the run record only — output files on disk are not deleted.`))return;
+  try{
+    await api(`/api/runs/${runId}`,{method:'DELETE'});
+    if(fromDrawer)closeDrawer();
+    loadRuns();
+  }catch(e){alert('Delete failed: '+e.message);}
+}
 
 function switchDTab(el,pane){
   document.querySelectorAll('.dtab').forEach(t=>t.classList.remove('active'));
@@ -1089,13 +1110,26 @@ async function loadConfigs(){
       No configs yet. <a href="#" onclick="newConfig()" style="color:var(--accent)">Create one</a> or add .yaml files to <code>configs/</code>.</div>`;
     return;
   }
-  $('configs-list').innerHTML=cfgs.map(c=>`
-    <div class="cfg-card">
-      <div><div class="cfg-name">${c.name}</div><div class="cfg-meta">${c.filename} · ${fmtSize(c.size_bytes)}</div></div>
-      <button class="btn btn-ghost btn-sm" onclick="editConfig('${c.name}')">✎ Edit</button>
-      <button class="btn btn-primary btn-sm" onclick="runConfig('${c.name}')">▶ Run</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteConfig('${c.name}')">🗑</button>
-    </div>`).join('');
+  // Fetch tasks for each config in parallel
+  const withTasks=await Promise.all(cfgs.map(async c=>{
+    try{const t=await api(`/api/configs/${encodeURIComponent(c.name)}/tasks`);return{...c,tasks:t.tasks||[],default_task:t.default_task||null};}
+    catch{return{...c,tasks:[],default_task:null};}
+  }));
+  $('configs-list').innerHTML=withTasks.map(c=>{
+    const defaultTask=c.default_task||(c.tasks.length?c.tasks[c.tasks.length-1].name:null);
+    const runBtn=defaultTask
+      ?`<button class="btn btn-primary btn-sm" onclick="runConfig(${jsq(c.name)},${jsq(defaultTask)})">▶ Run</button>`
+      :`<button class="btn btn-primary btn-sm" onclick="runConfig(${jsq(c.name)})">▶ Run</button>`;
+    const tasksRow=c.tasks.length?`<div class="cfg-tasks"><span class="cfg-tasks-lbl">Tasks ›</span>${c.tasks.map(t=>`<button class="btn btn-ghost btn-sm" style="font-size:.7rem;padding:.2rem .55rem" onclick="runConfig(${jsq(c.name)},${jsq(t.name)})" title="${t.description||''}">${t.name}</button>`).join('')}</div>`:'';
+    return`<div class="cfg-card">
+      <div class="cfg-card-header">
+        <div style="flex:1;min-width:0"><div class="cfg-name">${c.name}</div><div class="cfg-meta">${c.filename} · ${fmtSize(c.size_bytes)}${c.tasks.length?' · '+c.tasks.length+' tasks':''}</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="editConfig(${jsq(c.name)})">✎ Edit</button>
+        ${runBtn}
+        <button class="btn btn-danger btn-sm" onclick="deleteConfig(${jsq(c.name)})">🗑</button>
+      </div>
+      ${tasksRow}
+    </div>`;}).join('');
 }
 async function editConfig(name){
   const d=await api(`/api/configs/${name}`);
@@ -1126,8 +1160,9 @@ async function saveConfig(){
 }
 function closeEditor(){$('config-editor-section').style.display='none';_editName=null;}
 async function deleteConfig(name){if(!confirm(`Delete "${name}"?`))return;await api(`/api/configs/${name}`,{method:'DELETE'});loadConfigs();}
-async function runConfig(name){
-  const run=await api('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config_name:name})});
+async function runConfig(name,task=null){
+  const body=task?{config_name:name,task}:{config_name:name};
+  const run=await api('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   document.querySelector('[data-panel="panel-jobs"]').click();
   setTimeout(()=>attachConsole(run.run_id),300);
 }
@@ -1135,11 +1170,26 @@ async function runConfig(name){
 /* ─── New Crawl ─────────────────────────────────────────────────────────── */
 async function loadQuickConfigs(){
   const cfgs=await api('/api/configs');
-  $('quick-select').innerHTML=cfgs.length?cfgs.map(c=>`<option value="${c.name}">${c.name}</option>`).join(''):'<option value="">No saved configs</option>';
+  $('quick-select').innerHTML=cfgs.length?cfgs.map(c=>`<option value="${c.name}">${c.name}</option>`):'<option value="">No saved configs</option>';
+  await loadQuickTasks();
+}
+async function loadQuickTasks(){
+  const name=$('quick-select').value;
+  $('quick-task').innerHTML='<option value="">— all steps —</option>';
+  if(!name)return;
+  try{
+    const t=await api(`/api/configs/${encodeURIComponent(name)}/tasks`);
+    if(t.tasks&&t.tasks.length){
+      $('quick-task').innerHTML='<option value="">— all steps —</option>'+
+        t.tasks.map(tk=>`<option value="${tk.name}"${tk.name===t.default_task?' selected':''}>${tk.name}</option>`).join('');
+    }
+  }catch{}
 }
 async function quickStart(){
   const name=$('quick-select').value;if(!name){alert('Select a config');return;}
-  const run=await api('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config_name:name})});
+  const task=$('quick-task').value||null;
+  const body=task?{config_name:name,task}:{config_name:name};
+  const run=await api('/api/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   document.querySelector('[data-panel="panel-jobs"]').click();
   setTimeout(()=>attachConsole(run.run_id),300);
 }

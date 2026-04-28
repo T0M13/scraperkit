@@ -30,6 +30,7 @@ class JobInfo:
     run_id: str
     project: str
     config_path: str
+    task: str | None = None
     status: str = "queued"          # queued | running | success | failed | cancelled
     started_at: str = ""
     finished_at: str = ""
@@ -70,12 +71,13 @@ class JobManager:
     def get_job(self, run_id: str) -> JobInfo | None:
         return self._jobs.get(run_id)
 
-    def start(self, config_path: str, project: str, db_path: str = "scraperkit.db") -> str:
+    def start(self, config_path: str, project: str, db_path: str = "scraperkit.db", task: str | None = None) -> str:
         run_id = str(uuid.uuid4())[:8]
         job = JobInfo(
             run_id=run_id,
             project=project,
             config_path=config_path,
+            task=task,
             started_at=datetime.now(timezone.utc).isoformat(),
         )
         with self._lock:
@@ -120,6 +122,8 @@ class JobManager:
             "--log-level", "INFO",
             "--run-id", job.run_id,
         ]
+        if job.task:
+            cmd += ["--task", job.task]
         job.push_line(f"[scraperkit] Starting: {' '.join(cmd)}")
 
         try:
@@ -160,6 +164,7 @@ class JobManager:
         return {
             "run_id": job.run_id,
             "project": job.project,
+            "task": job.task,
             "config_path": job.config_path,
             "status": job.status,
             "started_at": job.started_at,

@@ -29,6 +29,7 @@ def run(
     db: str = typer.Option("scraperkit.db", "--db", help="SQLite database path"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Validate config and print steps without running"),
     run_id: str | None = typer.Option(None, "--run-id", hidden=True, help="Override run ID (used by API job manager)"),
+    task: str | None = typer.Option(None, "--task", "-t", help="Named task defined in the config's tasks: block"),
 ):
     """Run a scraping workflow defined in a YAML/JSON config file."""
     from scraperkit.core.config import load_config
@@ -45,7 +46,16 @@ def run(
     if dry_run:
         typer.echo(f"Project: {config.name}")
         typer.echo(f"URLs:    {config.start_urls}")
-        typer.echo(f"Steps:   {' → '.join(config.workflow)}")
+        if task:
+            if task not in config.tasks:
+                typer.echo(f"Error: task '{task}' not found. Available: {list(config.tasks.keys())}", err=True)
+                raise typer.Exit(1)
+            typer.echo(f"Task:    {task}")
+            typer.echo(f"Steps:   {' → '.join(config.tasks[task].workflow)}")
+        else:
+            if config.tasks:
+                typer.echo(f"Tasks:   {', '.join(config.tasks.keys())} (use --task to select one)")
+            typer.echo(f"Steps:   {' → '.join(config.workflow)}")
         typer.echo("(dry-run — not executing)")
         return
 
@@ -54,7 +64,7 @@ def run(
     configure_logging(level=log_level, log_dir=log_dir, project_name=config.name)
 
     store = RunStore(db)
-    runner = WorkflowRunner(config, output_dir=out, run_id=run_id)
+    runner = WorkflowRunner(config, output_dir=out, run_id=run_id, task=task)
 
     import importlib
     importlib.import_module("scraperkit.steps")

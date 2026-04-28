@@ -152,6 +152,12 @@ class RunStore:
             return None
         return self.get_run(row["run_id"])
 
+    def delete_run(self, run_id: str) -> bool:
+        with self._conn() as conn:
+            conn.execute("DELETE FROM run_steps WHERE run_id=?", (run_id,))
+            cur = conn.execute("DELETE FROM runs WHERE run_id=?", (run_id,))
+        return cur.rowcount > 0
+
     def project_stats(self, project: str) -> dict:
         with self._conn() as conn:
             row = conn.execute(

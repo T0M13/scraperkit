@@ -123,11 +123,20 @@ class CompareConfig(BaseModel):
     track_file: str | None = None   # explicit path to previous data file
 
 
+class TaskConfig(BaseModel):
+    """A named sub-workflow inside a project config."""
+    workflow: list[str]
+    description: str | None = None
+
+
 class ProjectConfig(BaseModel):
     name: str
     start_urls: list[str]
     crawler: CrawlerConfig = Field(default_factory=CrawlerConfig)
     workflow: list[str] = Field(default_factory=lambda: ["crawl", "export_json"])
+    # Named sub-workflows — run with: scraperkit run config.yaml --task crawl
+    tasks: dict[str, TaskConfig] = Field(default_factory=dict)
+    default_task: str | None = None   # task to use when no --task flag is given
     hooks: HookConfig = Field(default_factory=HookConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
     notify: NotifyConfig = Field(default_factory=NotifyConfig)
