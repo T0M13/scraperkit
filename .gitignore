@@ -38,9 +38,9 @@ scraperkit.db
 *.log
 *.jsonl
 
-# Private configs — put your own YAMLs in configs/, they stay local
-configs/*.yaml
-configs/*.yml
+# Private configs and projects — put your own YAMLs/projects here, they stay local
+configs/
+projects/
 
 # Secrets
 *.pem
