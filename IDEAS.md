@@ -22,7 +22,7 @@ The job fires automatically, logs to Run History like any other run.
 
 ### Parallel "Run all"
 A single button that fires all project configs simultaneously instead of one at a time.
-For three projects (project + project + project) this cuts total crawl wall-clock time by ~3x.
+For multiple projects this cuts total crawl wall-clock time significantly.
 
 ### Bulk history operations
 Select multiple runs with checkboxes → delete all at once.
@@ -38,7 +38,7 @@ Bumping to 2–3 with `autothrottle: true` is safe for most sites and roughly ha
 
 ### Resume on failure
 Checkpoint scraped pages to disk so a crash or timeout mid-crawl can resume from where it stopped
-instead of restarting from page 1. Especially valuable for the 37-shard project/project runs.
+instead of restarting from page 1. Especially valuable for large multi-shard crawls.
 
 ---
 
